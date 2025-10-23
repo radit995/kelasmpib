@@ -7,7 +7,7 @@ const users = {
 };
 
 // ==============================
-// FIREBASE INIT
+// FIREBASE INIT (MODULE)
 // ==============================
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.3.0/firebase-app.js";
 import {
@@ -42,23 +42,43 @@ const db = getFirestore(app);
 const storage = getStorage(app);
 
 // ==============================
-// LOGIN / LOGOUT
+// LOGIN SYSTEM
 // ==============================
-function isLoggedIn() {
-  return localStorage.getItem("loggedIn") === "true";
+function validateLogin(event) {
+  event.preventDefault();
+
+  const email = document.getElementById("email").value.trim();
+  const password = document.getElementById("password").value.trim();
+
+  console.log("Email:", email);
+  console.log("Password:", password);
+
+  if (users[email] && users[email].password === password) {
+    localStorage.setItem("loggedIn", "true");
+    localStorage.setItem("userEmail", email);
+    localStorage.setItem("userRole", users[email].role);
+
+    alert("✅ Login berhasil!");
+    window.location.href = "index.html";
+  } else {
+    alert("❌ Email atau password salah!");
+  }
 }
-function getUserEmail() {
-  return localStorage.getItem("userEmail");
-}
-function getUserRole() {
-  return localStorage.getItem("userRole");
-}
+
+// Pastikan fungsi dikenali oleh HTML form (karena module tidak expose otomatis)
+window.validateLogin = validateLogin;
+
+// ==============================
+// FUNGSI LOGOUT
+// ==============================
 function logout() {
   localStorage.removeItem("loggedIn");
   localStorage.removeItem("userEmail");
   localStorage.removeItem("userRole");
   window.location.href = "login.html";
 }
+window.logout = logout;
+
 
 // ==============================
 // VALIDASI LOGIN
@@ -304,6 +324,7 @@ document.addEventListener("DOMContentLoaded", function () {
     });
   }
 });
+
 
 
 
