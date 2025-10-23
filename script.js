@@ -10,14 +10,28 @@ const users = {
 // FIREBASE INIT
 // ==============================
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.3.0/firebase-app.js";
-import { getFirestore, collection, getDocs, addDoc, doc, deleteDoc } from "https://www.gstatic.com/firebasejs/10.3.0/firebase-firestore.js";
-import { getStorage, ref as storageRef, uploadBytes, getDownloadURL, deleteObject } from "https://www.gstatic.com/firebasejs/10.3.0/firebase-storage.js";
+import {
+  getFirestore,
+  collection,
+  getDocs,
+  getDoc,
+  addDoc,
+  doc,
+  deleteDoc
+} from "https://www.gstatic.com/firebasejs/10.3.0/firebase-firestore.js";
+import {
+  getStorage,
+  ref as storageRef,
+  uploadBytes,
+  getDownloadURL,
+  deleteObject
+} from "https://www.gstatic.com/firebasejs/10.3.0/firebase-storage.js";
 
 const firebaseConfig = {
   apiKey: "AIzaSyB5TYq_-QWQiBQ-9wQn6pOHefsNQTyg3UY",
   authDomain: "kelasmpib2025.firebaseapp.com",
   projectId: "kelasmpib2025",
-  storageBucket: "kelasmpib2025.appspot.com", // pastikan ini
+  storageBucket: "kelasmpib2025.appspot.com",
   messagingSenderId: "15991419195",
   appId: "1:15991419195:web:9baa88dc76b37b3ada871e",
   measurementId: "G-59EN8SJ1J1"
@@ -28,7 +42,7 @@ const db = getFirestore(app);
 const storage = getStorage(app);
 
 // ==============================
-// FUNGSI LOGIN & LOGOUT
+// LOGIN / LOGOUT
 // ==============================
 function isLoggedIn() {
   return localStorage.getItem("loggedIn") === "true";
@@ -49,17 +63,20 @@ function logout() {
 // ==============================
 // VALIDASI LOGIN
 // ==============================
-function validateLogin(event) {
+export function validateLogin(event) {
   event.preventDefault();
 
   const email = document.getElementById("email").value.trim();
   const password = document.getElementById("password").value.trim();
 
+  // Debugging jika login gagal
+  console.log("Email input:", email);
+  console.log("Password input:", password);
+
   if (users[email] && users[email].password === password) {
     localStorage.setItem("loggedIn", "true");
     localStorage.setItem("userEmail", email);
     localStorage.setItem("userRole", users[email].role);
-
     alert("Login berhasil!");
     window.location.href = "index.html";
   } else {
@@ -119,10 +136,11 @@ document.addEventListener("DOMContentLoaded", function () {
 });
 
 // ==============================
-// LOAD DATA MAKALAH (Firestore)
+// LOAD DATA MAKALAH
 // ==============================
 async function loadMakalahTable() {
   const tableBody = document.getElementById("makalahTableBody");
+  if (!tableBody) return;
   tableBody.innerHTML = "";
   const role = getUserRole();
 
@@ -154,7 +172,7 @@ async function loadMakalahTable() {
 }
 
 // ==============================
-// FUNGSI EDIT & HAPUS (ADMIN ONLY)
+// EDIT & HAPUS (ADMIN ONLY)
 // ==============================
 function editMakalah(id) {
   if (getUserRole() !== "admin") {
@@ -171,19 +189,28 @@ async function hapusMakalah(id) {
   }
 
   if (confirm("Yakin ingin menghapus makalah ini?")) {
-    const docRef = doc(db, "makalah", id);
-    const docSnap = await docRef.get();
-    // hapus file storage jika ada
-    try { await deleteObject(storageRef(storage, id)); } catch(e){}
+    try {
+      const docRef = doc(db, "makalah", id);
+      const docSnap = await getDoc(docRef);
+      const data = docSnap.data();
 
-    await deleteDoc(docRef);
-    alert("✅ Makalah berhasil dihapus!");
-    loadMakalahTable();
+      // hapus file dari storage jika ada
+      if (data?.storagePath) {
+        await deleteObject(storageRef(storage, data.storagePath));
+      }
+
+      await deleteDoc(docRef);
+      alert("✅ Makalah berhasil dihapus!");
+      loadMakalahTable();
+    } catch (e) {
+      console.error(e);
+      alert("Gagal menghapus makalah!");
+    }
   }
 }
 
 // ==============================
-// FUNGSI UPLOAD (ADMIN ONLY, max 100MB)
+// UPLOAD MAKALAH (ADMIN ONLY)
 // ==============================
 async function uploadMakalah(judul, kelompok, tanggal, fileInputId) {
   if (getUserRole() !== "admin" || getUserEmail() !== "mpiadmin@gmail.com") {
@@ -194,7 +221,7 @@ async function uploadMakalah(judul, kelompok, tanggal, fileInputId) {
   const fileInput = document.getElementById(fileInputId);
   if (!fileInput || fileInput.files.length === 0) return alert("Pilih file!");
   const file = fileInput.files[0];
-  if (file.size > 100*1024*1024) return alert("❌ File maksimal 100MB");
+  if (file.size > 100 * 1024 * 1024) return alert("❌ File maksimal 100MB");
 
   const path = `makalah/${Date.now()}_${file.name}`;
   const ref = storageRef(storage, path);
@@ -202,7 +229,11 @@ async function uploadMakalah(judul, kelompok, tanggal, fileInputId) {
   const fileUrl = await getDownloadURL(ref);
 
   await addDoc(collection(db, "makalah"), {
-    judul, kelompok, tanggal, fileUrl, storagePath: path
+    judul,
+    kelompok,
+    tanggal,
+    fileUrl,
+    storagePath: path,
   });
 
   alert("✅ Makalah berhasil diupload!");
@@ -214,7 +245,8 @@ async function uploadMakalah(judul, kelompok, tanggal, fileInputId) {
 // DOWNLOAD & LIHAT
 // ==============================
 async function downloadMakalah(id) {
-  const docSnap = await getDocs(doc(db, "makalah", id));
+  const docRef = doc(db, "makalah", id);
+  const docSnap = await getDoc(docRef);
   const data = docSnap.data();
   if (!data || !data.fileUrl) return alert("File tidak tersedia");
   window.open(data.fileUrl, "_blank");
@@ -223,6 +255,7 @@ async function downloadMakalah(id) {
 function lihatMakalah(id) {
   window.location.href = `lihat.html?id=${id}`;
 }
+
 
 
 
@@ -271,6 +304,7 @@ document.addEventListener("DOMContentLoaded", function () {
     });
   }
 });
+
 
 
 
